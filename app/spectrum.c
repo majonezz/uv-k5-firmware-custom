@@ -973,7 +973,27 @@ void OnKeyDownStill(KEY_Code_t key) {
     // TODO: start transmit
     /* BK4819_ToggleGpioOut(BK4819_GPIO6_PIN2_GREEN, false);
     BK4819_ToggleGpioOut(BK4819_GPIO5_PIN1_RED, true); */
-    break;
+    {
+      const uint8_t vfo = gEeprom.TX_VFO;
+      // copy channel to VFO, then swap to the VFO
+      gEeprom.ScreenChannel[vfo] = FREQ_CHANNEL_FIRST + gEeprom.VfoInfo[vfo].Band;
+      gEeprom.VfoInfo[vfo].CHANNEL_SAVE = gEeprom.ScreenChannel[vfo];
+      gTxVfo->pRX->Frequency=fMeasure;
+      gTxVfo->pTX->Frequency=fMeasure;
+      gTxVfo->freq_config_RX.CodeType = CODE_TYPE_OFF;
+      gTxVfo->freq_config_RX.Code     = 0;
+      gTxVfo->freq_config_TX.CodeType = CODE_TYPE_OFF;
+      gTxVfo->freq_config_TX.Code     = 0;
+      gTxVfo->Modulation = settings.modulationType;
+      RADIO_SelectVfos();
+      RADIO_ApplyOffset(gTxVfo);
+      RADIO_ConfigureSquelchAndOutputPower(gTxVfo);
+      RADIO_SetupRegisters(true);
+      isInitialized = false;
+      menuState = 0;
+      gUpdateDisplay = true;
+  	  break;
+    }
   case KEY_MENU:
     if (menuState == ARRAY_SIZE(registerSpecs) - 1) {
       menuState = 1;
