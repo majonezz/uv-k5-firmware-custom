@@ -36,6 +36,11 @@
 #include "settings.h"
 #include "ui/inputbox.h"
 #include "ui/ui.h"
+#ifdef ENABLE_SPECTRUM
+	#include "app/spectrum.h"
+	extern State currentState,previousState;
+#endif
+
 
 void GENERIC_Key_F(bool bKeyPressed, bool bKeyHeld)
 {
@@ -151,6 +156,15 @@ void GENERIC_Key_PTT(bool bKeyPressed)
 		SCANNER_Stop();
 		goto cancel_tx;
 	}
+#ifdef ENABLE_SPECTRUM
+	if (currentState == STILL) //prevent unwanted TX activation after copying SA freq to VFO
+	{	
+		currentState = SPECTRUM;
+		previousState = SPECTRUM;
+		goto cancel_tx;
+	}
+#endif
+
 
 	if (gScanStateDir != SCAN_OFF)
 	{	// frequency/channel scanning . .stop
