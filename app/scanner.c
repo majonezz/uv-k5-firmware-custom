@@ -223,21 +223,21 @@ static void SCANNER_Key_MENU(bool bKeyPressed, bool bKeyHeld)
 			break;
 	}
 }
-static void SCANNER_Key_PTT(void)
+static void SCANNER_Key_PTT(bool bKeyPressed)
 {
-    SCANNER_Stop();
-    if (gScanCssState == SCAN_CSS_STATE_FOUND) {
-
-	gTxVfo->freq_config_TX.CodeType = gScanCssResultType;
-	gTxVfo->freq_config_TX.Code     = gScanCssResultCode;
-	if(!IS_MR_CHANNEL(gTxVfo->CHANNEL_SAVE)) gRequestSaveChannel = 2;
-	gEeprom.CROSS_BAND_RX_TX = gBackup_CROSS_BAND_RX_TX;
-	gVfoConfigureMode        = VFO_CONFIGURE;
-	gFlagResetVfos           = false;
-	gUpdateStatus            = true;
-
-    }
-    GENERIC_Key_PTT(bKeyPressed);
+   if (bKeyPressed) { 
+   	SCANNER_Stop();
+    	if (gScanCssState == SCAN_CSS_STATE_FOUND) {
+		gTxVfo->freq_config_TX.CodeType = gScanCssResultType;
+		gTxVfo->freq_config_TX.Code     = gScanCssResultCode;
+		if(!IS_MR_CHANNEL(gTxVfo->CHANNEL_SAVE)) gRequestSaveChannel = 2;
+		gEeprom.CROSS_BAND_RX_TX = gBackup_CROSS_BAND_RX_TX;
+		gVfoConfigureMode        = VFO_CONFIGURE;
+		gFlagResetVfos           = false;
+		gUpdateStatus            = true;
+	}
+   }
+   GENERIC_Key_PTT(bKeyPressed);
 }
 
 static void SCANNER_Key_STAR(bool bKeyPressed, bool bKeyHeld)
@@ -303,7 +303,7 @@ void SCANNER_ProcessKeys(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
 			SCANNER_Key_STAR(bKeyPressed, bKeyHeld);
 			break;
 		case KEY_PTT:
-			SCANNER_Key_PTT();
+			SCANNER_Key_PTT(bKeyPressed);
 			//GENERIC_Key_PTT(bKeyPressed);
 			break;
 		default:
