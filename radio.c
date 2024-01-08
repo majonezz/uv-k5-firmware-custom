@@ -14,7 +14,6 @@
  *     limitations under the License.
  */
 
-#include "driver/bk4819-regs.h"
 #include <string.h>
 
 #include "am_fix.h"
@@ -32,6 +31,9 @@
 #include "frequencies.h"
 #include "functions.h"
 #include "helper/battery.h"
+#ifdef ENABLE_MDC1200
+    #include "mdc1200.h"
+#endif
 #include "misc.h"
 #include "radio.h"
 #include "settings.h"
@@ -56,41 +58,69 @@ const char gModulationStr[MODULATION_UKNOWN][4] = {
 
 
 
-bool RADIO_CheckValidChannel(uint16_t channel, bool checkScanList, uint8_t scanList)
-{
-	// return true if the channel appears valid
-	if (!IS_MR_CHANNEL(channel))
+bool RADIO_CheckValidChannel(uint16_t Channel, bool bCheckScanList, uint8_t VFO)
+{	// return true if the channel appears valid
+
+	ChannelAttributes_t att;
+	uint8_t PriorityCh1;
+	uint8_t PriorityCh2;
+
+	if (!IS_MR_CHANNEL(Channel))
 		return false;
 
-	const ChannelAttributes_t att = gMR_ChannelAttributes[channel];
+	att = gMR_ChannelAttributes[Channel];
 
 	if (att.band > BAND7_470MHz)
 		return false;
 
-	if (!checkScanList || scanList > 1)
-		return true;
+	if (bCheckScanList) {
+		switch (VFO) {
+			case 0:
+				if (!att.scanlist1)
+					return false;
 
-	if (scanList ? !att.scanlist2 : !att.scanlist1)
-		return false;
+				PriorityCh1 = gEeprom.SCANLIST_PRIORITY_CH1[0];
+				PriorityCh2 = gEeprom.SCANLIST_PRIORITY_CH2[0];
+				break;
 
-	const uint8_t PriorityCh1 = gEeprom.SCANLIST_PRIORITY_CH1[scanList];
-	const uint8_t PriorityCh2 = gEeprom.SCANLIST_PRIORITY_CH2[scanList];
+			case 1:
+				if (!att.scanlist2)
+					return false;
 
-	return PriorityCh1 != channel && PriorityCh2 != channel;
+				PriorityCh1 = gEeprom.SCANLIST_PRIORITY_CH1[1];
+				PriorityCh2 = gEeprom.SCANLIST_PRIORITY_CH2[1];
+				break;
+
+			default:
+				return true;
+		}
+
+		if (PriorityCh1 == Channel)
+			return false;
+
+		if (PriorityCh2 == Channel)
+			return false;
+	}
+
+	return true;
 }
 
 uint8_t RADIO_FindNextChannel(uint8_t Channel, int8_t Direction, bool bCheckScanList, uint8_t VFO)
 {
-	for (unsigned int i = 0; IS_MR_CHANNEL(i); i++, Channel += Direction) {
-		if (Channel == 0xFF) {
-			Channel = MR_CHANNEL_LAST;
-		} else if (!IS_MR_CHANNEL(Channel)) {
-			Channel = MR_CHANNEL_FIRST;
-		}
+	unsigned int i;
 
-		if (RADIO_CheckValidChannel(Channel, bCheckScanList, VFO)) {
+	for (i = 0; IS_MR_CHANNEL(i); i++)
+	{
+		if (Channel == 0xFF)
+			Channel = MR_CHANNEL_LAST;
+		else
+		if (!IS_MR_CHANNEL(Channel))
+			Channel = MR_CHANNEL_FIRST;
+
+		if (RADIO_CheckValidChannel(Channel, bCheckScanList, VFO))
 			return Channel;
-		}
+
+		Channel += Direction;
 	}
 
 	return 0xFF;
@@ -138,7 +168,7 @@ void RADIO_ConfigureChannel(const unsigned int VFO, const unsigned int configure
 
 	if (IS_VALID_CHANNEL(channel)) {
 #ifdef ENABLE_NOAA
-		if (IS_NOAA_CHANNEL(channel))
+		if (channel >= NOAA_CHANNEL_FIRST)
 		{
 			RADIO_InitInfo(pVfo, gEeprom.ScreenChannel[VFO], NoaaFrequencyTable[channel - NOAA_CHANNEL_FIRST]);
 
@@ -289,6 +319,8 @@ void RADIO_ConfigureChannel(const unsigned int VFO, const unsigned int configure
 			pVfo->CHANNEL_BANDWIDTH = BK4819_FILTER_BW_WIDE;
 			pVfo->OUTPUT_POWER      = OUTPUT_POWER_LOW;
 			pVfo->BUSY_CHANNEL_LOCK = false;
+			pVfo->mdc1200_mode = 0;
+
 		}
 		else
 		{
@@ -297,6 +329,8 @@ void RADIO_ConfigureChannel(const unsigned int VFO, const unsigned int configure
 			pVfo->CHANNEL_BANDWIDTH = !!((d4 >> 1) & 1u);
 			pVfo->OUTPUT_POWER      =   ((d4 >> 2) & 3u);
 			pVfo->BUSY_CHANNEL_LOCK = !!((d4 >> 4) & 1u);
+			pVfo->mdc1200_mode 	=   ((d4 >> 5) & 3u);
+
 		}
 
 		if (data[5] == 0xFF)
@@ -733,6 +767,11 @@ void RADIO_SetupRegisters(bool switchToForeground)
 	if (gCurrentFunction != FUNCTION_TRANSMIT) {
 		BK4819_EnableDTMF();
 		InterruptMask |= BK4819_REG_3F_DTMF_5TONE_FOUND;
+#ifdef ENABLE_MDC1200
+		BK4819_enable_mdc1200_rx(true);
+		InterruptMask |= BK4819_REG_3F_FSK_RX_SYNC | BK4819_REG_3F_FSK_RX_FINISHED | BK4819_REG_3F_FSK_FIFO_ALMOST_FULL;
+#endif
+
 	}
 #endif
 
@@ -777,7 +816,7 @@ void RADIO_SetupRegisters(bool switchToForeground)
 				return;
 			}
 
-			if (IS_NOAA_CHANNEL(gRxVfo->CHANNEL_SAVE))
+			if (gRxVfo->CHANNEL_SAVE >= NOAA_CHANNEL_FIRST)
 			{
 				gIsNoaaMode          = true;
 				gNoaaChannel         = gRxVfo->CHANNEL_SAVE - NOAA_CHANNEL_FIRST;
@@ -1058,16 +1097,6 @@ void RADIO_EnableCxCSS(void)
 	SYSTEM_DelayMs(200);
 }
 
-void RADIO_SendEndOfTransmission(void)
-{
-	BK4819_PlayRoger();
-	DTMF_SendEndOfTransmission();
-
-	// send the CTCSS/DCS tail tone - allows the receivers to mute the usual FM squelch tail/crash
-	RADIO_EnableCxCSS();
-	RADIO_SetupRegisters(false);
-}
-
 void RADIO_PrepareCssTX(void)
 {
 	RADIO_PrepareTX();
@@ -1076,4 +1105,61 @@ void RADIO_PrepareCssTX(void)
 
 	RADIO_EnableCxCSS();
 	RADIO_SetupRegisters(true);
+}
+
+void RADIO_SendEndOfTransmission(void)
+{
+
+#ifdef ENABLE_MDC1200
+    if (gCurrentVfo->mdc1200_mode == MDC1200_MODE_EOT || gCurrentVfo->mdc1200_mode == MDC1200_MODE_BOTH)
+    {
+	BK4819_send_MDC1200(MDC1200_OP_CODE_POST_ID, 0x00, gEeprom.MDC_ID, false);
+
+#ifdef ENABLE_MDC1200_SIDE_BEEP
+//	    BK4819_PlaySingleTone(880,120,10,false);
+	    //BK4819_start_tone(880, 10, true, true);
+	    //SYSTEM_DelayMs(120);
+	    //BK4819_stop_tones(true);
+	    //AUDIO_PlayBeep(BEEP_880HZ_40MS_OPTIONAL);
+
+#endif
+    }
+    //else
+#endif
+
+	if (gEeprom.ROGER == ROGER_MODE_ROGER)
+		BK4819_PlayRoger();
+	else if (gEeprom.ROGER == ROGER_MODE_MDC)
+		BK4819_PlayRogerMDC();
+
+	if (gCurrentVfo->DTMF_PTT_ID_TX_MODE == PTT_ID_APOLLO)
+		BK4819_PlaySingleTone(2475, 250, 28, gEeprom.DTMF_SIDE_TONE);
+
+	if ((gCurrentVfo->DTMF_PTT_ID_TX_MODE == PTT_ID_TX_DOWN || gCurrentVfo->DTMF_PTT_ID_TX_MODE == PTT_ID_BOTH)
+#ifdef ENABLE_DTMF_CALLING
+		&& gDTMF_CallState == DTMF_CALL_STATE_NONE
+#endif
+	) {	// end-of-tx
+		if (gEeprom.DTMF_SIDE_TONE)
+		{
+			AUDIO_AudioPathOn();
+			gEnableSpeaker = true;
+			SYSTEM_DelayMs(60);
+		}
+
+		BK4819_EnterDTMF_TX(gEeprom.DTMF_SIDE_TONE);
+
+		BK4819_PlayDTMFString(
+				gEeprom.DTMF_DOWN_CODE,
+				0,
+				gEeprom.DTMF_FIRST_CODE_PERSIST_TIME,
+				gEeprom.DTMF_HASH_CODE_PERSIST_TIME,
+				gEeprom.DTMF_CODE_PERSIST_TIME,
+				gEeprom.DTMF_CODE_INTERVAL_TIME);
+
+		AUDIO_AudioPathOff();
+		gEnableSpeaker = false;
+	}
+
+	BK4819_ExitDTMF_TX(true);
 }
