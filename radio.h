@@ -128,6 +128,8 @@ typedef struct VFO_Info_t
 	ModulationMode_t    Modulation;
 
 	uint8_t        Compander;
+	uint8_t		mdc1200_mode;
+	uint16_t   	mdc1200_id;
 
 	char           Name[16];
 } VFO_Info_t;
@@ -148,7 +150,7 @@ extern DCS_CodeType_t gCurrentCodeType;
 
 extern VfoState_t     VfoState[2];
 
-bool     RADIO_CheckValidChannel(uint16_t channel, bool checkScanList, uint8_t scanList);
+bool     RADIO_CheckValidChannel(uint16_t ChNum, bool bCheckScanList, uint8_t RadioNum);
 uint8_t  RADIO_FindNextChannel(uint8_t ChNum, int8_t Direction, bool bCheckScanList, uint8_t RadioNum);
 void     RADIO_InitInfo(VFO_Info_t *pInfo, const uint8_t ChannelSave, const uint32_t Frequency);
 void     RADIO_ConfigureChannel(const unsigned int VFO, const unsigned int configure);
@@ -167,5 +169,6 @@ void     RADIO_PrepareTX(void);
 void     RADIO_EnableCxCSS(void);
 void     RADIO_PrepareCssTX(void);
 void     RADIO_SendEndOfTransmission(void);
+
 
 #endif

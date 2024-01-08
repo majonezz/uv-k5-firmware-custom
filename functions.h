@@ -27,8 +27,7 @@ enum FUNCTION_Type_t
 	FUNCTION_INCOMING,        // receiving a signal (squelch is open)
 	FUNCTION_RECEIVE,         // RX mode, squelch closed
 	FUNCTION_POWER_SAVE,      // sleeping
-	FUNCTION_BAND_SCOPE,      // bandscope mode (panadpter/spectrum) .. not yet implemented
-	FUNCTION_N_ELEM
+	FUNCTION_BAND_SCOPE       // bandscope mode (panadpter/spectrum) .. not yet implemented
 };
 
 typedef enum FUNCTION_Type_t FUNCTION_Type_t;

@@ -38,7 +38,7 @@ enum BK4819_AF_Type_t
 	BK4819_AF_UNKNOWN5  = 11u,  // distorted
 	BK4819_AF_UNKNOWN6  = 12u,  // distorted
 	BK4819_AF_UNKNOWN7  = 13u,  // interesting
-	BK4819_AF_UNKNOWN8  = 14u,  // interesting
+	BK4819_AF_UNKNOWN8  = 14u,  // interesting 
 	BK4819_AF_UNKNOWN9  = 15u   // not a lot
 };
 
@@ -128,7 +128,8 @@ void     BK4819_EnableTXLink(void);
 
 void     BK4819_PlayDTMF(char Code);
 void     BK4819_PlayDTMFString(const char *pString, bool bDelayFirst, uint16_t FirstCodePersistTime, uint16_t HashCodePersistTime, uint16_t CodePersistTime, uint16_t CodeInternalTime);
-
+void     BK4819_start_tone(const uint16_t frequency, const unsigned int level, const bool tx, const bool tx_mute);
+void     BK4819_stop_tones(const bool tx);
 void     BK4819_TransmitTone(bool bLocalLoopback, uint32_t Frequency);
 
 void     BK4819_GenTail(uint8_t Tail);
@@ -161,13 +162,20 @@ uint8_t  BK4819_GetCTCType(void);
 
 void     BK4819_SendFSKData(uint16_t *pData);
 void     BK4819_PrepareFSKReceive(void);
-
+	    
 void     BK4819_PlayRoger(void);
+void     BK4819_PlayRogerMDC(void);
+	    
+#ifdef ENABLE_MDC1200
+    void BK4819_enable_mdc1200_rx(const bool enable);
+    void BK4819_send_MDC1200(const uint8_t op, const uint8_t arg, const uint16_t id, const bool long_preamble);
+#endif
 
 void     BK4819_Enable_AfDac_DiscMode_TxDsp(void);
-
+	    
 void     BK4819_GetVoxAmp(uint16_t *pResult);
 void     BK4819_SetScrambleFrequencyControlWord(uint32_t Frequency);
 void     BK4819_PlayDTMFEx(bool bLocalLoopback, char Code);
 
 #endif
+

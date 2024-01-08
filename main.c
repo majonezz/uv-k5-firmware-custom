@@ -21,7 +21,9 @@
 #ifdef ENABLE_AM_FIX
 	#include "am_fix.h"
 #endif
-
+#ifdef ENABLE_MDC1200
+    #include "mdc1200.h"
+#endif
 #include "audio.h"
 #include "board.h"
 #include "misc.h"
@@ -107,6 +109,9 @@ void Main(void)
 		BOARD_ADC_GetBatteryInfo(&gBatteryVoltages[i], &gBatteryCurrent);
 
 	BATTERY_GetReadings(false);
+#ifdef ENABLE_MDC1200
+	MDC1200_init();
+#endif
 
 #ifdef ENABLE_AM_FIX
 	AM_fix_init();

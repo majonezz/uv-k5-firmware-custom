@@ -4,6 +4,7 @@
 #include "functions.h"
 #include "misc.h"
 #include "settings.h"
+#include "string.h"
 
 int8_t            gScanStateDir;
 bool              gScanKeepResult;
@@ -27,15 +28,20 @@ uint32_t            initialFrqOrChan;
 uint8_t           	initialCROSS_BAND_RX_TX;
 uint32_t            lastFoundFrqOrChan;
 
+static uint32_t blacklistFreqsOrChans[15];
+static uint8_t blacklistFreqsOrChansIdx = 0;
+
 static void NextFreqChannel(void);
 static void NextMemChannel(void);
 
-void CHFRSCANNER_Start(const bool storeBackupSettings, const int8_t scan_direction)
+void CHFRSCANNER_Start(const bool storeBackupSettings, const int8_t scan_direction, const bool blacklist)
 {
 	if (storeBackupSettings) {
 		initialCROSS_BAND_RX_TX = gEeprom.CROSS_BAND_RX_TX;
 		gEeprom.CROSS_BAND_RX_TX = CROSS_BAND_OFF;
 		gScanKeepResult = false;
+		memset(blacklistFreqsOrChans, 0, sizeof(blacklistFreqsOrChans));
+		blacklistFreqsOrChansIdx = 0;
 	}
 	
 	RADIO_SelectVfos();
@@ -43,6 +49,14 @@ void CHFRSCANNER_Start(const bool storeBackupSettings, const int8_t scan_directi
 	gNextMrChannel   = gRxVfo->CHANNEL_SAVE;
 	currentScanList = SCAN_NEXT_CHAN_SCANLIST1;
 	gScanStateDir    = scan_direction;
+	if(blacklist) {
+	    if (blacklistFreqsOrChansIdx <= sizeof(blacklistFreqsOrChans)/sizeof(blacklistFreqsOrChans[0])) {
+		if (IS_MR_CHANNEL(gNextMrChannel)) blacklistFreqsOrChans[blacklistFreqsOrChansIdx] = gRxVfo->CHANNEL_SAVE;
+		else blacklistFreqsOrChans[blacklistFreqsOrChansIdx] = gRxVfo->freq_config_RX.Frequency;
+		blacklistFreqsOrChansIdx++;
+	    }
+
+	}
 
 	if (IS_MR_CHANNEL(gNextMrChannel))
 	{	// channel mode
@@ -163,6 +177,19 @@ static void NextFreqChannel(void)
 	else
 #endif
 		gRxVfo->freq_config_RX.Frequency = APP_SetFrequencyByStep(gRxVfo, gScanStateDir);
+	
+	if (blacklistFreqsOrChansIdx) {// check if frequency is blacklisted
+	    for (unsigned int i=0; i<blacklistFreqsOrChansIdx; i++) {
+		if (blacklistFreqsOrChans[i] == gRxVfo->freq_config_RX.Frequency) {
+		    if ((gScanRangeStart == gRxVfo->freq_config_RX.Frequency) || (gScanRangeStop == gRxVfo->freq_config_RX.Frequency)) {
+			CHFRSCANNER_Stop();
+			return;
+		    }
+		    NextFreqChannel();
+		}
+	    }
+	}
+
 
 	RADIO_ApplyOffset(gRxVfo);
 	RADIO_ConfigureSquelchAndOutputPower(gRxVfo);
@@ -242,12 +269,21 @@ static void NextMemChannel(void)
 	if (!enabled || chan == 0xff)
 	{
 		chan = RADIO_FindNextChannel(gNextMrChannel + gScanStateDir, gScanStateDir, (gEeprom.SCAN_LIST_DEFAULT < 2) ? true : false, gEeprom.SCAN_LIST_DEFAULT);
+
 		if (chan == 0xFF)
 		{	// no valid channel found
 			chan = MR_CHANNEL_FIRST;
 		}
 		
 		gNextMrChannel = chan;
+	}
+	if (blacklistFreqsOrChansIdx) {// check if channel is blacklisted
+	    for (unsigned int i=0; i<blacklistFreqsOrChansIdx; i++) {
+		if (blacklistFreqsOrChans[i] == gNextMrChannel) {
+		    currentScanList = SCAN_NEXT_CHAN_SCANLIST1;
+		    NextMemChannel();
+		}
+	    }
 	}
 
 	if (gNextMrChannel != prev_chan)
@@ -266,7 +302,6 @@ static void NextMemChannel(void)
 #else
 	gScanPauseDelayIn_10ms = scan_pause_delay_in_3_10ms;
 #endif
-
 	if (enabled)
 		if (++currentScanList >= SCAN_NEXT_NUM)
 			currentScanList = SCAN_NEXT_CHAN_SCANLIST1;  // back round we go

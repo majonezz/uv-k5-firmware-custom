@@ -103,7 +103,7 @@ void MENU_CssScanFound(void)
 void MENU_StopCssScan(void)
 {
 	gCssBackgroundScan = false;
-
+	
 #ifdef ENABLE_VOICE
 	gAnotherVoiceID       = VOICE_ID_SCANNING_STOP;
 #endif
@@ -133,12 +133,12 @@ int MENU_GetLimits(uint8_t menu_id, int32_t *pMin, int32_t *pMax)
 		case MENU_ABR_MIN:
 			*pMin = 0;
 			*pMax = 9;
-			break;
+			break;				
 
 		case MENU_ABR_MAX:
 			*pMin = 1;
 			*pMax = 10;
-			break;
+			break;	
 
 		case MENU_F_LOCK:
 			*pMin = 0;
@@ -303,13 +303,25 @@ int MENU_GetLimits(uint8_t menu_id, int32_t *pMin, int32_t *pMax)
 			*pMin = 0;
 			*pMax = 2;
 			break;
-
+			
 #ifdef ENABLE_DTMF_CALLING
 		case MENU_D_RSP:
 			*pMin = 0;
 			*pMax = ARRAY_SIZE(gSubMenu_D_RSP) - 1;
 			break;
 #endif
+#ifdef ENABLE_MDC1200
+		case MENU_MDC1200_MODE:
+			*pMin = 0;
+			*pMax = ARRAY_SIZE(g_sub_menu_mdc1200_mode) - 1;
+			break;
+
+		case MENU_MDC1200_ID:
+			*pMin = 0;
+			*pMax = 0xffff;
+			break;
+#endif
+
 		case MENU_PTT_ID:
 			*pMin = 0;
 			*pMax = ARRAY_SIZE(gSubMenu_PTT_ID) - 1;
@@ -500,7 +512,7 @@ void MENU_AcceptSetting(void)
 					break;
 				edit[i] = ' ';
 			}
-
+			
 			SETTINGS_SaveChannelName(gSubMenuSelection, edit);
 			return;
 
@@ -531,7 +543,7 @@ void MENU_AcceptSetting(void)
 		case MENU_ABR_MAX:
 			gEeprom.BACKLIGHT_MAX = gSubMenuSelection;
 			gEeprom.BACKLIGHT_MIN = MIN(gSubMenuSelection - 1, gEeprom.BACKLIGHT_MIN);
-			break;
+			break;			
 
 		case MENU_ABR_ON_TX_RX:
 			gSetting_backlight_on_tx_rx = gSubMenuSelection;
@@ -645,6 +657,20 @@ void MENU_AcceptSetting(void)
 		case MENU_D_PRE:
 			gEeprom.DTMF_PRELOAD_TIME = gSubMenuSelection * 10;
 			break;
+
+#ifdef ENABLE_MDC1200
+		case MENU_MDC1200_MODE:
+			gTxVfo->mdc1200_mode = gSubMenuSelection;
+			gRequestSaveChannel = 1;
+			break;
+
+		case MENU_MDC1200_ID:
+			//gEeprom.config.setting.mdc1200_id = gSubMenuSelection;
+			gEeprom.MDC_ID = gSubMenuSelection;
+			break;
+#endif
+
+
 
 		case MENU_PTT_ID:
 			gTxVfo->DTMF_PTT_ID_TX_MODE = gSubMenuSelection;
@@ -835,9 +861,9 @@ void MENU_ShowCurrentSetting(void)
 
 		case MENU_RESET:
 			gSubMenuSelection = 0;
-			break;
+			break;			
 
-		case MENU_R_DCS:
+		case MENU_R_DCS: 
 		case MENU_R_CTCS:
 		{
 			DCS_CodeType_t type = gTxVfo->freq_config_RX.CodeType;
@@ -940,7 +966,7 @@ void MENU_ShowCurrentSetting(void)
 
 		case MENU_ABR_MAX:
 			gSubMenuSelection = gEeprom.BACKLIGHT_MAX;
-			break;
+			break;		
 
 		case MENU_ABR_ON_TX_RX:
 			gSubMenuSelection = gSetting_backlight_on_tx_rx;
@@ -1045,6 +1071,17 @@ void MENU_ShowCurrentSetting(void)
 			gSubMenuSelection = gEeprom.DTMF_PRELOAD_TIME / 10;
 			break;
 
+#ifdef ENABLE_MDC1200
+		case MENU_MDC1200_MODE:
+			gSubMenuSelection = gTxVfo->mdc1200_mode;
+			break;
+
+		case MENU_MDC1200_ID:
+			gSubMenuSelection = gEeprom.MDC_ID;
+			break;
+#endif
+
+
 		case MENU_PTT_ID:
 			gSubMenuSelection = gTxVfo->DTMF_PTT_ID_TX_MODE;
 			break;
@@ -1133,7 +1170,7 @@ void MENU_ShowCurrentSetting(void)
 
 		case MENU_BATTYP:
 			gSubMenuSelection = gEeprom.BATTERY_TYPE;
-			break;
+			break;			
 
 		case MENU_F1SHRT:
 		case MENU_F1LONG:
@@ -1154,7 +1191,7 @@ void MENU_ShowCurrentSetting(void)
 					gSubMenuSelection = i;
 					break;
 				}
-
+					
 			}
 			break;
 		}
@@ -1256,17 +1293,17 @@ static void MENU_Key_0_to_9(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
 		#ifdef ENABLE_VOICE
 			gAnotherVoiceID = (VOICE_ID_t)Key;
 		#endif
-
+		
 		Frequency = StrToUL(INPUTBOX_GetAscii())*100;
 		gSubMenuSelection = FREQUENCY_RoundToStep(Frequency, gTxVfo->StepFrequency);
 
 		gInputBoxIndex = 0;
 		return;
 	}
-
-	if (UI_MENU_GetCurrentMenuId() == MENU_MEM_CH ||
-		UI_MENU_GetCurrentMenuId() == MENU_DEL_CH ||
-		UI_MENU_GetCurrentMenuId() == MENU_1_CALL ||
+	
+	if (UI_MENU_GetCurrentMenuId() == MENU_MEM_CH || 
+		UI_MENU_GetCurrentMenuId() == MENU_DEL_CH || 
+		UI_MENU_GetCurrentMenuId() == MENU_1_CALL || 
 		UI_MENU_GetCurrentMenuId() == MENU_MEM_NAME)
 	{	// enter 3-digit channel number
 
@@ -1452,11 +1489,16 @@ static void MENU_Key_MENU(const bool bKeyPressed, const bool bKeyHeld)
 				return;	// next char
 
 			// exit
-			gFlagAcceptSetting  = false;
-			gAskForConfirmation = 0;
-			if (memcmp(edit_original, edit, sizeof(edit_original)) == 0) {
-				// no change - drop it
-				gIsInSubMenu = false;
+			if (memcmp(edit_original, edit, sizeof(edit_original)) == 0)
+			{	// no change - drop it
+				gFlagAcceptSetting  = false;
+				gIsInSubMenu        = false;
+				gAskForConfirmation = 0;
+			}
+			else
+			{
+				gFlagAcceptSetting  = false;
+				gAskForConfirmation = 0;
 			}
 		}
 	}

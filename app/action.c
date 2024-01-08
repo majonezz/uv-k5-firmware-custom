@@ -124,7 +124,7 @@ void ACTION_Monitor(void)
 	if (gCurrentFunction != FUNCTION_MONITOR) { // enable the monitor
 		RADIO_SelectVfos();
 #ifdef ENABLE_NOAA
-		if (IS_NOAA_CHANNEL(gRxVfo->CHANNEL_SAVE) && gIsNoaaMode)
+		if (gRxVfo->CHANNEL_SAVE >= NOAA_CHANNEL_FIRST && gIsNoaaMode)
 			gNoaaChannel = gRxVfo->CHANNEL_SAVE - NOAA_CHANNEL_FIRST;
 #endif
 		RADIO_SetupRegisters(true);
@@ -208,12 +208,12 @@ void ACTION_Scan(bool bRestart)
 		gEeprom.SCAN_LIST_DEFAULT = (gEeprom.SCAN_LIST_DEFAULT + 1) % 3;
 
 		// jump to the next channel
-		CHFRSCANNER_Start(false, gScanStateDir);
+		CHFRSCANNER_Start(false, gScanStateDir, false);
 		gScanPauseDelayIn_10ms = 1;
 		gScheduleScanListen    = false;
 	} else {
 		// start scanning
-		CHFRSCANNER_Start(true, SCAN_FWD);
+		CHFRSCANNER_Start(true, SCAN_FWD, false);
 
 #ifdef ENABLE_VOICE
 		AUDIO_SetVoiceID(0, VOICE_ID_SCANNING_BEGIN);
@@ -310,8 +310,12 @@ void ACTION_Handle(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
 	}
 
 	// held or released after short press beyond this point
-
-	action_opt_table[funcShort]();
+	if (gScanStateDir) { //scanner is active
+	    CHFRSCANNER_Start(false, gScanStateDir, true); // this button is used to skip a scan result but only in running scanning cycle
+	    gScanPauseDelayIn_10ms = 1;
+	    gScheduleScanListen    = false;
+	} else 
+		action_opt_table[funcShort]();
 }
 
 

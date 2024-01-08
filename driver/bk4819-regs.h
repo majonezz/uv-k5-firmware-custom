@@ -17,7 +17,6 @@
 #ifndef BK4819_REGS_H
 #define BK4819_REGS_H
 
-#include <stdint.h>
 
 typedef struct {
   const char *name;
@@ -388,3 +387,4 @@ enum {
 };
 
 #endif
+

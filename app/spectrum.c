@@ -16,7 +16,6 @@
 #include "app/spectrum.h"
 #include "am_fix.h"
 #include "audio.h"
-#include "misc.h"
 
 #ifdef ENABLE_SCAN_RANGES
 #include "chFrScanner.h"
@@ -26,6 +25,7 @@
 #include "frequencies.h"
 #include "ui/helper.h"
 #include "ui/main.h"
+#include "app/generic.h"
 
 struct FrequencyBandInfo {
   uint32_t lower;
@@ -38,6 +38,7 @@ struct FrequencyBandInfo {
 
 const uint16_t RSSI_MAX_VALUE = 65535;
 
+static uint16_t R30, R37, R3D, R43, R47, R48, R7E;
 static uint32_t initialFreq;
 static char String[32];
 
@@ -221,29 +222,24 @@ static void ToggleAFBit(bool on) {
   BK4819_WriteRegister(BK4819_REG_47, reg);
 }
 
-static const BK4819_REGISTER_t registers_to_save[] ={
-  BK4819_REG_30,
-  BK4819_REG_37,
-  BK4819_REG_3D,
-  BK4819_REG_43,
-  BK4819_REG_47,
-  BK4819_REG_48,
-  BK4819_REG_7E,
-};
-
-static uint16_t registers_stack [sizeof(registers_to_save)];
-
 static void BackupRegisters() {
-  for (uint32_t i = 0; i < ARRAY_SIZE(registers_to_save); i++){
-    registers_stack[i] = BK4819_ReadRegister(registers_to_save[i]);
-  }
+  R30 = BK4819_ReadRegister(BK4819_REG_30);
+  R37 = BK4819_ReadRegister(BK4819_REG_37);
+  R3D = BK4819_ReadRegister(BK4819_REG_3D);
+  R43 = BK4819_ReadRegister(BK4819_REG_43);
+  R47 = BK4819_ReadRegister(BK4819_REG_47);
+  R48 = BK4819_ReadRegister(BK4819_REG_48);
+  R7E = BK4819_ReadRegister(BK4819_REG_7E);
 }
 
 static void RestoreRegisters() {
-
-  for (uint32_t i = 0; i < ARRAY_SIZE(registers_to_save); i++){
-    BK4819_WriteRegister(registers_to_save[i], registers_stack[i]);
-  }
+  BK4819_WriteRegister(BK4819_REG_30, R30);
+  BK4819_WriteRegister(BK4819_REG_37, R37);
+  BK4819_WriteRegister(BK4819_REG_3D, R3D);
+  BK4819_WriteRegister(BK4819_REG_43, R43);
+  BK4819_WriteRegister(BK4819_REG_47, R47);
+  BK4819_WriteRegister(BK4819_REG_48, R48);
+  BK4819_WriteRegister(BK4819_REG_7E, R7E);
 }
 
 static void ToggleAFDAC(bool on) {
@@ -277,8 +273,8 @@ bool IsCenterMode() { return settings.scanStepIndex < S_STEP_2_5kHz; }
 // scan step in 0.01khz
 uint16_t GetScanStep() { return scanStepValues[settings.scanStepIndex]; }
 
-uint16_t GetStepsCount()
-{
+uint16_t GetStepsCount() 
+{ 
 #ifdef ENABLE_SCAN_RANGES
   if(gScanRangeStart) {
     return (gScanRangeStop - gScanRangeStart) / GetScanStep();
@@ -428,24 +424,19 @@ static void UpdatePeakInfo() {
     UpdatePeakInfoForce();
 }
 
-static void SetRssiHistory(uint16_t idx, uint16_t rssi)
-{
-#ifdef ENABLE_SCAN_RANGES
+static void Measure() 
+{ 
+  uint16_t rssi = scanInfo.rssi = GetRssi();
+#ifdef ENABLE_SCAN_RANGES  
   if(scanInfo.measurementsCount > 128) {
-    uint8_t i = (uint32_t)ARRAY_SIZE(rssiHistory) * 1000 / scanInfo.measurementsCount * idx / 1000;
-    if(rssiHistory[i] < rssi || isListening)
-      rssiHistory[i] = rssi;
-    rssiHistory[(i+1)%128] = 0;
+    uint8_t idx = (uint32_t)ARRAY_SIZE(rssiHistory) * 1000 / scanInfo.measurementsCount * scanInfo.i / 1000;
+    if(rssiHistory[idx] < rssi || isListening) 
+      rssiHistory[idx] = rssi;
+    rssiHistory[(idx+1)%128] = 0;
     return;
   }
 #endif
-  rssiHistory[idx] = rssi;
-}
-
-static void Measure()
-{
-  uint16_t rssi = scanInfo.rssi = GetRssi();
-  SetRssiHistory(scanInfo.i, rssi);
+  rssiHistory[scanInfo.i] = rssi;
 }
 
 // Update things by keypress
@@ -488,12 +479,13 @@ static void UpdateDBMax(bool inc) {
 }
 
 static void UpdateScanStep(bool inc) {
-  if (inc) {
-    settings.scanStepIndex = settings.scanStepIndex != S_STEP_100_0kHz ? settings.scanStepIndex + 1 : 0;
+  if (inc && settings.scanStepIndex < S_STEP_100_0kHz) {
+    settings.scanStepIndex++;
+  } else if (!inc && settings.scanStepIndex > 0) {
+    settings.scanStepIndex--;
   } else {
-    settings.scanStepIndex = settings.scanStepIndex != 0 ? settings.scanStepIndex - 1 : S_STEP_100_0kHz;
+    return;
   }
-
   settings.frequencyChangeStep = GetBW() >> 1;
   RelaunchScan();
   ResetBlacklist();
@@ -645,8 +637,7 @@ static void Blacklist() {
 #ifdef ENABLE_SCAN_RANGES
   blacklistFreqs[blacklistFreqsIdx++ % ARRAY_SIZE(blacklistFreqs)] = peak.i;
 #endif
-
-  SetRssiHistory(peak.i, RSSI_MAX_VALUE);
+  rssiHistory[peak.i] = RSSI_MAX_VALUE;
   ResetPeak();
   ToggleRX(false);
   ResetScanStats();
@@ -726,7 +717,7 @@ static void DrawStatus() {
 
 static void DrawF(uint32_t f) {
   sprintf(String, "%u.%05u", f / 100000, f % 100000);
-  UI_PrintStringSmallNormal(String, 8, 127, 0);
+  UI_PrintStringSmall(String, 8, 127, 0);
 
   sprintf(String, "%3s", gModulationStr[settings.modulationType]);
   GUI_DisplaySmallest(String, 116, 1, false, true);
@@ -850,7 +841,7 @@ static void OnKeyDown(uint8_t key) {
   case KEY_5:
 #ifdef ENABLE_SCAN_RANGES
     if(!gScanRangeStart)
-#endif
+#endif  
       FreqInput();
     break;
   case KEY_0:
@@ -973,7 +964,45 @@ void OnKeyDownStill(KEY_Code_t key) {
     // TODO: start transmit
     /* BK4819_ToggleGpioOut(BK4819_GPIO6_PIN2_GREEN, false);
     BK4819_ToggleGpioOut(BK4819_GPIO5_PIN1_RED, true); */
-    break;
+    {
+	const uint8_t vfo = gEeprom.TX_VFO;
+	// copy channel to VFO, then swap to the VFO
+	//RestoreRegisters();
+	isInitialized = false;
+	menuState = 0;
+
+	gEeprom.ScreenChannel[vfo] = FREQ_CHANNEL_FIRST + gEeprom.VfoInfo[vfo].Band;
+	gEeprom.VfoInfo[vfo].CHANNEL_SAVE = gEeprom.ScreenChannel[vfo];
+	//gRxVfo->pRX->Frequency=fMeasure;
+	//gRxVfo->pTX->Frequency=fMeasure;
+	gTxVfo->pRX->Frequency=fMeasure;
+	gTxVfo->pTX->Frequency=fMeasure;
+	gTxVfo->freq_config_RX.CodeType = CODE_TYPE_OFF;
+	gTxVfo->freq_config_RX.Code     = 0;
+	gTxVfo->freq_config_TX.CodeType = CODE_TYPE_OFF;
+	gTxVfo->freq_config_TX.Code     = 0;
+	gTxVfo->Modulation = settings.modulationType;
+	
+
+
+	//gTxVfo->Frequency=fMeasure;
+
+	RADIO_SelectVfos();
+	RADIO_ApplyOffset(gTxVfo);
+	RADIO_ConfigureSquelchAndOutputPower(gTxVfo);
+	RADIO_SetupRegisters(true);
+
+	//SETTINGS_SaveChannel(channel, gEeprom.RX_VFO, gRxVfo, 1);
+	gUpdateDisplay = true;
+	//if (menuState) {
+    	//    menuState = 0;
+	//    break;
+	//}
+	//DeInitSpectrum();
+	//gPttWasPressed = true;
+	//GENERIC_Key_PTT(true);
+	break;
+    }
   case KEY_MENU:
     if (menuState == ARRAY_SIZE(registerSpecs) - 1) {
       menuState = 1;
@@ -1075,7 +1104,7 @@ static void RenderStill() {
 }
 
 static void Render() {
-  UI_DisplayClear();
+  memset(gFrameBuffer, 0, sizeof(gFrameBuffer));
 
   switch (currentState) {
   case SPECTRUM:
@@ -1150,7 +1179,7 @@ static void UpdateScan() {
   }
 
   if(scanInfo.measurementsCount < 128)
-    memset(&rssiHistory[scanInfo.measurementsCount], 0,
+    memset(&rssiHistory[scanInfo.measurementsCount], 0, 
       sizeof(rssiHistory) - scanInfo.measurementsCount*sizeof(rssiHistory[0]));
 
   redrawScreen = true;

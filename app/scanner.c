@@ -28,6 +28,8 @@
 #include "ui/inputbox.h"
 #include "ui/ui.h"
 
+#include "driver/uart.h"
+
 DCS_CodeType_t    gScanCssResultType;
 uint8_t           gScanCssResultCode;
 bool              gScanSingleFrequency; // scan CTCSS/DCS codes for current frequency
@@ -224,6 +226,137 @@ static void SCANNER_Key_MENU(bool bKeyPressed, bool bKeyHeld)
 	}
 }
 
+
+
+
+static void SCANNER_Key_PTT(void)
+{
+
+    SCANNER_Stop();
+//    if ((gScanCssState == SCAN_CSS_STATE_FOUND) && (IS_MR_CHANNEL(gTxVfo->CHANNEL_SAVE))) {
+    if (gScanCssState == SCAN_CSS_STATE_FOUND) {
+//	UART_printf("CTCSS: %d %d vfo: %d ch s: %d\r\n", gScanCssResultType, gScanCssResultCode, gEeprom.TX_VFO, gTxVfo->CHANNEL_SAVE);
+
+//	const uint8_t vfo = gEeprom.TX_VFO;
+
+
+	gTxVfo->freq_config_TX.CodeType = gScanCssResultType;
+	gTxVfo->freq_config_TX.Code     = gScanCssResultCode;
+
+//	uint8_t chan;
+//	chan = gTxVfo->Band + FREQ_CHANNEL_FIRST;
+//	gEeprom.FreqChannel[gEeprom.TX_VFO] = chan;
+//	gTxVfo->CHANNEL_SAVE = chan;
+//	gEeprom.ScreenChannel[gEeprom.TX_VFO] = chan;
+
+	if(!IS_MR_CHANNEL(gTxVfo->CHANNEL_SAVE)) gRequestSaveChannel = 2;
+
+	gEeprom.CROSS_BAND_RX_TX = gBackup_CROSS_BAND_RX_TX;
+	gVfoConfigureMode        = VFO_CONFIGURE;
+	gFlagResetVfos           = false;
+	gUpdateStatus            = true;
+
+
+
+	//gCssBackgroundScan 			 = false;
+
+
+//	SETTINGS_SaveChannel(gTxVfo->CHANNEL_SAVE, gEeprom.TX_VFO, gTxVfo, 2);
+
+
+
+//	if (IS_MR_CHANNEL(gEeprom.ScreenChannel[vfo]))
+//		{	// copy channel to VFO, then swap to the VFO
+
+		    //gEeprom.ScreenChannel[vfo] = FREQ_CHANNEL_FIRST + gEeprom.VfoInfo[vfo].Band;
+		    //gEeprom.VfoInfo[vfo].CHANNEL_SAVE = gEeprom.ScreenChannel[vfo];
+	//gEeprom.MrChannel[    gEeprom.TX_VFO] = gTxVfo->CHANNEL_SAVE;
+	//gEeprom.ScreenChannel[gEeprom.TX_VFO] = gTxVfo->CHANNEL_SAVE;
+
+
+	//gEeprom.ScreenChannel[gEeprom.TX_VFO] = gTxVfo->CHANNEL_SAVE;
+	//gEeprom.VfoInfo[gEeprom.TX_VFO].CHANNEL_SAVE = gTxVfo->CHANNEL_SAVE;
+
+//	RADIO_ConfigureChannel(gEeprom.TX_VFO, VFO_CONFIGURE_RELOAD);
+
+//	RADIO_SetupRegisters(true);
+
+//	gUpdateDisplay = true;
+
+
+//	gTxVfo->freq_config_RX.CodeType = gScanCssResultType;
+//	gTxVfo->freq_config_RX.Code     = gScanCssResultCode;
+
+	//gRxVfo->freq_config_RX.CodeType = gScanCssResultType;
+	//gRxVfo->freq_config_RX.Code     = gScanCssResultCode;
+	//gRxVfo->freq_config_TX.CodeType = gScanCssResultType;
+	//gRxVfo->freq_config_TX.Code     = gScanCssResultCode;
+
+
+
+//	gEeprom.VfoInfo[gEeprom.TX_VFO].freq_config_TX.Code = gScanCssResultCode;
+//	gEeprom.VfoInfo[gEeprom.TX_VFO].freq_config_TX.CodeType = gScanCssResultType;
+
+
+//		    RADIO_SelectVfos();
+//		    RADIO_ApplyOffset(gRxVfo);
+//		    RADIO_ConfigureSquelchAndOutputPower(gRxVfo);
+//		    RADIO_SetupRegisters(true);
+
+		    //SETTINGS_SaveChannel(channel, gEeprom.RX_VFO, gRxVfo, 1);
+
+//		    gUpdateDisplay = true;
+//		    gUpdateStatus = true;
+//		}
+
+
+
+	//FREQ_Config_t *pConfig = &gTxVfo->freq_config_TX;
+	//pConfig->CodeType = gScanCssResultType;
+	//pConfig->Code = gScanCssResultCode;
+	//RADIO_SelectVfos();
+	//RADIO_ApplyOffset(gRxVfo);
+	//RADIO_ConfigureSquelchAndOutputPower(gRxVfo);
+	//RADIO_SetupRegisters(true);
+
+	//gRequestSaveChannel       = 1;
+	//uint8_t chan;
+	//chan = gTxVfo->CHANNEL_SAVE;
+		//gTxVfo->CHANNEL_SAVE = chan;
+		//gEeprom.MrChannel[gEeprom.TX_VFO] = chan;
+		//gEeprom.ScreenChannel[gEeprom.TX_VFO] = chan;
+	
+	//RADIO_ConfigureChannel(0, VFO_CONFIGURE);
+	//RADIO_ConfigureChannel(1, VFO_CONFIGURE);
+	//gTxVfo->freq_config_RX.CodeType = gScanCssResultType;
+	//gTxVfo->freq_config_RX.Code     = gScanCssResultCode;
+	//gTxVfo->freq_config_TX.CodeType = gScanCssResultType;
+	//gTxVfo->freq_config_TX.Code     = gScanCssResultCode;
+	//chan = gScanChannel;
+	//gEeprom.MrChannel[gEeprom.TX_VFO] = chan;
+	//gEeprom.ScreenChannel[gEeprom.TX_VFO] = chan;
+
+
+	//gEeprom.VfoInfo[gEeprom.TX_VFO].freq_config_TX.Code = gScanCssResultCode;
+	//gEeprom.VfoInfo[gEeprom.TX_VFO].freq_config_TX.CodeType = gScanCssResultType;
+	//gEeprom.ScreenChannel[gEeprom.TX_VFO].freq_config_TX.Code = gScanCssResultCode;
+	//gEeprom.ScreenChannel[gEeprom.TX_VFO].freq_config_TX.CodeType = gScanCssResultType;
+	//gEeprom.MrChannel[gEeprom.TX_VFO].freq_config_TX.Code = gScanCssResultCode;
+	//gEeprom.Mrchannel[gEeprom.TX_VFO].freq_config_TX.CodeType = gScanCssResultType;
+	
+	//RADIO_ConfigureChannel(gEeprom.TX_VFO, VFO_CONFIGURE);
+	//RADIO_ConfigureChannel(gEeprom.TX_VFO, VFO_CONFIGURE);
+	//RADIO_ConfigureChannel(1, VFO_CONFIGURE);
+	//RADIO_ConfigureChannel(TX_VFO, VFO_CONFIGURE);
+
+    }
+
+    //SCANNER_Stop();
+
+}
+
+
+
 static void SCANNER_Key_STAR(bool bKeyPressed, bool bKeyHeld)
 {
 	if (!bKeyHeld && bKeyPressed) {
@@ -232,6 +365,9 @@ static void SCANNER_Key_STAR(bool bKeyPressed, bool bKeyHeld)
 	}
 	return;
 }
+
+
+
 
 static void SCANNER_Key_UP_DOWN(bool bKeyPressed, bool pKeyHeld, int8_t Direction)
 {
@@ -287,7 +423,8 @@ void SCANNER_ProcessKeys(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
 			SCANNER_Key_STAR(bKeyPressed, bKeyHeld);
 			break;
 		case KEY_PTT:
-			GENERIC_Key_PTT(bKeyPressed);
+			SCANNER_Key_PTT();
+			//GENERIC_Key_PTT(bKeyPressed);
 			break;
 		default:
 			if (!bKeyHeld && bKeyPressed)

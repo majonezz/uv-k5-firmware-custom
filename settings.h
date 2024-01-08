@@ -124,6 +124,15 @@ enum CHANNEL_DisplayMode_t {
 };
 typedef enum CHANNEL_DisplayMode_t CHANNEL_DisplayMode_t;
 
+enum mdc1200_mode_e {
+    MDC1200_MODE_OFF = 0, // OFF
+    MDC1200_MODE_BOT,     // BEGIN OF TX
+    MDC1200_MODE_EOT,     // END OF TX
+    MDC1200_MODE_BOTH     // BOTH
+};
+typedef enum mdc1200_mode_e mdc1200_mode_t;
+
+
 typedef struct {
 	uint8_t               ScreenChannel[2]; // current channels set in the radio (memory or frequency channels)
 	uint8_t               FreqChannel[2]; // last frequency channels used
@@ -233,6 +242,7 @@ typedef struct {
 
 	VFO_Info_t            VfoInfo[2];
 	uint32_t              POWER_ON_PASSWORD;
+	uint16_t              MDC_ID;
 	uint16_t              VOX1_THRESHOLD;
 	uint16_t              VOX0_THRESHOLD;
 

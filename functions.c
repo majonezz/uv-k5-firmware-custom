@@ -34,6 +34,9 @@
 #include "frequencies.h"
 #include "functions.h"
 #include "helper/battery.h"
+#ifdef ENABLE_MDC1200
+    #include "mdc1200.h"
+#endif
 #include "misc.h"
 #include "radio.h"
 #include "settings.h"
@@ -42,18 +45,38 @@
 
 FUNCTION_Type_t gCurrentFunction;
 
-bool FUNCTION_IsRx()
+inline bool FUNCTION_IsRx()
 {
 	return gCurrentFunction == FUNCTION_MONITOR ||
 		   gCurrentFunction == FUNCTION_INCOMING ||
 		   gCurrentFunction == FUNCTION_RECEIVE;
 }
 
+
 void FUNCTION_Init(void)
 {
+#ifdef ENABLE_NOAA
+	if (!IS_NOAA_CHANNEL(gRxVfo->CHANNEL_SAVE))
+#endif
+	{
+		gCurrentCodeType = (gRxVfo->Modulation != MODULATION_FM) ? CODE_TYPE_OFF : gRxVfo->pRX->CodeType;
+	}
+#ifdef ENABLE_NOAA
+	else
+		gCurrentCodeType = CODE_TYPE_CONTINUOUS_TONE;
+#endif
+
+#ifdef ENABLE_DTMF_CALLING
+	DTMF_clear_RX();
+#endif
+
 	g_CxCSS_TAIL_Found = false;
 	g_CDCSS_Lost       = false;
 	g_CTCSS_Lost       = false;
+
+	#ifdef ENABLE_VOX
+		g_VOX_Lost     = false;
+	#endif
 
 	g_SquelchLost      = false;
 
@@ -65,23 +88,9 @@ void FUNCTION_Init(void)
 	gFoundCDCSSCountdown_10ms          = 0;
 	gEndOfRxDetectedMaybe              = false;
 
-	gCurrentCodeType = (gRxVfo->Modulation != MODULATION_FM) ? CODE_TYPE_OFF : gRxVfo->pRX->CodeType;
-
-#ifdef ENABLE_VOX
-	g_VOX_Lost     = false;
-#endif
-
-#ifdef ENABLE_DTMF_CALLING
-	DTMF_clear_RX();
-#endif
-
-#ifdef ENABLE_NOAA
-	gNOAACountdown_10ms = 0;
-
-	if (IS_NOAA_CHANNEL(gRxVfo->CHANNEL_SAVE)) {
-		gCurrentCodeType = CODE_TYPE_CONTINUOUS_TONE;
-	}
-#endif
+	#ifdef ENABLE_NOAA
+		gNOAACountdown_10ms = 0;
+	#endif
 
 	gUpdateStatus = true;
 }
@@ -92,7 +101,6 @@ void FUNCTION_Foreground(const FUNCTION_Type_t PreviousFunction)
 	if (gDTMF_ReplyState != DTMF_REPLY_NONE)
 		RADIO_PrepareCssTX();
 #endif
-
 	if (PreviousFunction == FUNCTION_TRANSMIT) {
 		ST7565_FixInterfGlitch();
 		gVFO_RSSI_bar_level[0] = 0;
@@ -138,6 +146,11 @@ void FUNCTION_PowerSave() {
 
 void FUNCTION_Transmit()
 {
+
+#ifdef ENABLE_MDC1200
+	BK4819_enable_mdc1200_rx(false);
+#endif
+
 	// if DTMF is enabled when TX'ing, it changes the TX audio filtering !! .. 1of11
 	BK4819_DisableDTMF();
 
@@ -147,6 +160,7 @@ void FUNCTION_Transmit()
 #endif
 
 	// clear the DTMF RX live decoder buffer
+	gDTMF_RX_live_timeout = 0;
 	gDTMF_RX_live_timeout = 0;
 	memset(gDTMF_RX_live, 0, sizeof(gDTMF_RX_live));
 
@@ -181,13 +195,34 @@ void FUNCTION_Transmit()
 	gUpdateStatus = true;
 
 	GUI_DisplayScreen();
-
+	
 	RADIO_SetTxParameters();
 
 	// turn the RED LED on
 	BK4819_ToggleGpioOut(BK4819_GPIO5_PIN1_RED, true);
 
 	DTMF_Reply();
+
+#ifdef ENABLE_MDC1200
+		    if (gCurrentVfo->mdc1200_mode == MDC1200_MODE_BOT || gCurrentVfo->mdc1200_mode == MDC1200_MODE_BOTH)
+		    {
+			SYSTEM_DelayMs(30);
+    
+			BK4819_send_MDC1200(MDC1200_OP_CODE_PTT_ID, 0x80, gEeprom.MDC_ID, true);
+			//BK4819_send_MDC1200(MDC1200_OP_CODE_PTT_ID, 0x80, gEeprom.MDC_ID, false);
+    
+#ifdef ENABLE_MDC1200_SIDE_BEEP
+			    //BK4819_start_tone(880, 10, true, true);
+			    //SYSTEM_DelayMs(120);
+			    //BK4819_stop_tones(true);
+			    //BK4819_PlaySingleTone(880, 10, true, true);
+			    //BK4819_PlaySingleTone(880, 120, 10, true);
+			    //SYSTEM_DelayMs(120);
+			    //BK4819_stop_tones(true);
+#endif
+		    }
+		    else
+#endif
 
 	if (gCurrentVfo->DTMF_PTT_ID_TX_MODE == PTT_ID_APOLLO)
 		BK4819_PlaySingleTone(2525, 250, 0, gEeprom.DTMF_SIDE_TONE);
@@ -222,6 +257,8 @@ void FUNCTION_Transmit()
 	if (gSetting_backlight_on_tx_rx & BACKLIGHT_ON_TR_TX) {
 		BACKLIGHT_TurnOn();
 	}
+	//BK4819_send_MDC1200(MDC1200_OP_CODE_PTT_ID, 0x80, gEeprom.MDC_ID, false);
+
 }
 
 
@@ -261,7 +298,6 @@ void FUNCTION_Select(FUNCTION_Type_t Function)
 		case FUNCTION_INCOMING:
 		case FUNCTION_RECEIVE:
 		case FUNCTION_BAND_SCOPE:
-		default:
 			break;
 	}
 

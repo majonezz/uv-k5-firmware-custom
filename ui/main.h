@@ -24,7 +24,8 @@ enum center_line_t {
 	CENTER_LINE_RSSI,
 	CENTER_LINE_AM_FIX_DATA,
 	CENTER_LINE_DTMF_DEC,
-	CENTER_LINE_CHARGE_DATA
+	CENTER_LINE_CHARGE_DATA,
+	CENTER_LINE_MDC1200
 };
 
 enum Vfo_txtr_mode{
@@ -41,9 +42,5 @@ extern const int8_t dBmCorrTable[7];
 void UI_DisplayAudioBar(void);
 void UI_MAIN_TimeSlice500ms(void);
 void UI_DisplayMain(void);
-
-#ifdef ENABLE_AGC_SHOW_DATA
-void UI_MAIN_PrintAGC(bool force);
-#endif
 
 #endif

@@ -3,23 +3,29 @@
 # 0 = disable
 # 1 = enable
 
+# ---- COMPILER/LINKER OPTIONS ----
+ENABLE_CLANG                  ?= 0
+ENABLE_SWD                    ?= 0
+ENABLE_OVERLAY                ?= 0
+ENABLE_LTO                    ?= 1
+
 # ---- STOCK QUANSHENG FERATURES ----
 ENABLE_UART                   ?= 1
+ENABLE_UART_DEBUG             ?= 0
 ENABLE_AIRCOPY                ?= 0
 ENABLE_FMRADIO                ?= 1
 ENABLE_NOAA                   ?= 0
 ENABLE_VOICE                  ?= 0
-ENABLE_VOX                    ?= 1
+ENABLE_VOX                    ?= 0
 ENABLE_ALARM                  ?= 0
 ENABLE_TX1750                 ?= 0
 ENABLE_PWRON_PASSWORD         ?= 0
-ENABLE_DTMF_CALLING           ?= 1
+ENABLE_DTMF_CALLING           ?= 0
 ENABLE_FLASHLIGHT             ?= 1
 
 # ---- CUSTOM MODS ----
 ENABLE_BIG_FREQ               ?= 1
 ENABLE_SMALL_BOLD             ?= 1
-ENABLE_CUSTOM_MENU_LAYOUT     ?= 1
 ENABLE_KEEP_MEM_NAME          ?= 1
 ENABLE_WIDE_RX                ?= 1
 ENABLE_TX_WHEN_AM             ?= 0
@@ -44,13 +50,12 @@ ENABLE_SCAN_RANGES            ?= 1
 # ---- DEBUGGING ----
 ENABLE_AM_FIX_SHOW_DATA       ?= 0
 ENABLE_AGC_SHOW_DATA          ?= 0
-ENABLE_UART_RW_BK_REGS        ?= 0
 
-# ---- COMPILER/LINKER OPTIONS ----
-ENABLE_CLANG                  ?= 0
-ENABLE_SWD                    ?= 0
-ENABLE_OVERLAY                ?= 0
-ENABLE_LTO                    ?= 1
+# MDC1200 2.8 kB
+ENABLE_MDC1200                   ?= 1
+ENABLE_MDC1200_SHOW_OP_ARG       ?= 1
+ENABLE_MDC1200_SIDE_BEEP         ?= 1
+
 
 #############################################################
 
@@ -64,6 +69,10 @@ endif
 ifeq ($(ENABLE_LTO),1)
 	# can't have LTO and OVERLAY enabled at same time
 	ENABLE_OVERLAY := 0
+endif
+
+ifeq ($(ENABLE_UART), 0)
+    ENABLE_UART_DEBUG := 0
 endif
 
 BSP_DEFINITIONS := $(wildcard hardware/*/*.def)
@@ -144,6 +153,9 @@ OBJS += frequencies.o
 OBJS += functions.o
 OBJS += helper/battery.o
 OBJS += helper/boot.o
+ifeq ($(ENABLE_MDC1200),1)
+    OBJS += mdc1200.o
+endif
 OBJS += misc.o
 OBJS += radio.o
 OBJS += scheduler.o
@@ -180,7 +192,7 @@ else # unix
     RM = rm -f
     FixPath = $1
     WHERE = which
-    NULL_OUTPUT = /dev/null
+    NULL_OUTPUT = /dev/null	
 endif
 
 AS = arm-none-eabi-gcc
@@ -208,11 +220,6 @@ ifneq (, $(shell $(WHERE) git))
 	ifeq (, $(VERSION_STRING))
     	VERSION_STRING := $(shell git rev-parse --short HEAD)
 	endif
-endif
-# If there is still no VERSION_STRING we need to make one.
-# It is needed for the firmware packing script
-ifeq (, $(VERSION_STRING))
-	VERSION_STRING := NOGIT
 endif
 #VERSION_STRING := 230930b
 
@@ -269,6 +276,9 @@ endif
 ifeq ($(ENABLE_UART),1)
 	CFLAGS += -DENABLE_UART
 endif
+ifeq ($(ENABLE_UART_DEBUG),1)
+	CFLAGS += -DENABLE_UART_DEBUG
+endif
 ifeq ($(ENABLE_BIG_FREQ),1)
 	CFLAGS  += -DENABLE_BIG_FREQ
 endif
@@ -289,6 +299,15 @@ ifeq ($(ENABLE_ALARM),1)
 endif
 ifeq ($(ENABLE_TX1750),1)
 	CFLAGS  += -DENABLE_TX1750
+endif
+ifeq ($(ENABLE_MDC1200),1)
+	CFLAGS  += -DENABLE_MDC1200
+endif
+ifeq ($(ENABLE_MDC1200_SHOW_OP_ARG),1)
+	CFLAGS  += -DENABLE_MDC1200_SHOW_OP_ARG
+endif
+ifeq ($(ENABLE_MDC1200_SIDE_BEEP),1)
+	CFLAGS  += -DENABLE_MDC1200_SIDE_BEEP
 endif
 ifeq ($(ENABLE_PWRON_PASSWORD),1)
 	CFLAGS  += -DENABLE_PWRON_PASSWORD
@@ -371,12 +390,6 @@ endif
 ifeq ($(ENABLE_FLASHLIGHT),1)
 	CFLAGS  += -DENABLE_FLASHLIGHT
 endif
-ifeq ($(ENABLE_UART_RW_BK_REGS),1)
-	CFLAGS  += -DENABLE_UART_RW_BK_REGS
-endif
-ifeq ($(ENABLE_CUSTOM_MENU_LAYOUT),1)
-	CFLAGS  += -DENABLE_CUSTOM_MENU_LAYOUT
-endif
 
 LDFLAGS =
 LDFLAGS += -z noexecstack -mcpu=cortex-m0 -nostartfiles -Wl,-T,firmware.ld -Wl,--gc-sections
@@ -454,6 +467,3 @@ bsp/dp32g030/%.h: hardware/dp32g030/%.def
 
 clean:
 	$(RM) $(call FixPath, $(TARGET).bin $(TARGET).packed.bin $(TARGET) $(OBJS) $(DEPS))
-
-doxygen:
-	doxygen

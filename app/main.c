@@ -224,9 +224,9 @@ static void processFKeyFunction(const KEY_Code_t Key, const bool beep)
 #endif
 			}
 			else {
-#ifdef ENABLE_VOX
+//#ifdef ENABLE_VOX
 				toggle_chan_scanlist();
-#endif
+//#endif
 			}
 
 			break;
@@ -238,8 +238,8 @@ static void processFKeyFunction(const KEY_Code_t Key, const bool beep)
 		case KEY_7:
 #ifdef ENABLE_VOX
 			ACTION_Vox();
-#else
-			toggle_chan_scanlist();
+//#else
+//			toggle_chan_scanlist();
 #endif
 			break;
 
@@ -633,8 +633,9 @@ static void MAIN_Key_STAR(bool bKeyPressed, bool bKeyHeld)
 
 			gRequestDisplayScreen = DISPLAY_MAIN;
 		}
-		else
+		else 
 			gBeepToPlay = BEEP_500HZ_60MS_DOUBLE_BEEP_OPTIONAL;
+		
 	}
 	else
 	{	// with the F-key
@@ -661,6 +662,7 @@ static void MAIN_Key_STAR(bool bKeyPressed, bool bKeyHeld)
 static void MAIN_Key_UP_DOWN(bool bKeyPressed, bool bKeyHeld, int8_t Direction)
 {
 	uint8_t Channel = gEeprom.ScreenChannel[gEeprom.TX_VFO];
+	//UART_printf("bKeyPressed %d bKeyHeld %d\r\n", bKeyPressed, bKeyHeld);
 
 	if (bKeyHeld || !bKeyPressed)
 	{
@@ -688,10 +690,11 @@ static void MAIN_Key_UP_DOWN(bool bKeyPressed, bool bKeyHeld, int8_t Direction)
 		if (gInputBoxIndex > 0)
 		{
 			gBeepToPlay = BEEP_500HZ_60MS_DOUBLE_BEEP_OPTIONAL;
-			return;
+			//return;
 		}
 
 		gBeepToPlay = BEEP_1KHZ_60MS_OPTIONAL;
+		//gBeepToPlay = BEEP_500HZ_60MS_DOUBLE_BEEP_OPTIONAL;
 	}
 
 	if (gScanStateDir == SCAN_OFF)
@@ -749,9 +752,7 @@ static void MAIN_Key_UP_DOWN(bool bKeyPressed, bool bKeyHeld, int8_t Direction)
 		gVfoConfigureMode = VFO_CONFIGURE_RELOAD;
 		return;
 	}
-
-	// jump to the next channel
-	CHFRSCANNER_Start(false, Direction);
+	CHFRSCANNER_Start(false, Direction, false);
 	gScanPauseDelayIn_10ms = 1;
 	gScheduleScanListen    = false;
 
