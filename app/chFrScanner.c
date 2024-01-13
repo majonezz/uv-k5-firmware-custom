@@ -50,7 +50,7 @@ void CHFRSCANNER_Start(const bool storeBackupSettings, const int8_t scan_directi
 	currentScanList = SCAN_NEXT_CHAN_SCANLIST1;
 	gScanStateDir    = scan_direction;
 	if(blacklist) {
-	    if (blacklistFreqsOrChansIdx <= sizeof(blacklistFreqsOrChans)/sizeof(blacklistFreqsOrChans[0])) {
+	    if (blacklistFreqsOrChansIdx < ARRAY_SIZE(blacklistFreqsOrChans)) {
 		if (IS_MR_CHANNEL(gNextMrChannel)) blacklistFreqsOrChans[blacklistFreqsOrChansIdx] = gRxVfo->CHANNEL_SAVE;
 		else blacklistFreqsOrChans[blacklistFreqsOrChansIdx] = gRxVfo->freq_config_RX.Frequency;
 		blacklistFreqsOrChansIdx++;
